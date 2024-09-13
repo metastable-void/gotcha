@@ -1,0 +1,24 @@
+{
+  "name": "@menhera/gotcha",
+  "version": "0.1.0",
+  "description": "",
+  "main": "dist/index.js",
+  "type": "module",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/metastable-void/gotcha.git"
+  },
+  "author": "metastable-void",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/metastable-void/gotcha/issues"
+  },
+  "homepage": "https://github.com/metastable-void/gotcha#readme",
+  "devDependencies": {
+    "typescript": "^5.6.2"
+  }
+}

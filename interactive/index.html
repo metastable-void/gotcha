@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang='en'>
+<head>
+<meta charset='utf-8'/>
+<title>Gotcha</title>
+<meta name='viewport' content='width=device-width, initial-scale=1'>
+<style>
+:root, body {
+	font-family: system-ui, sans-serif;
+}
+
+input, select, button {
+  font: inherit;
+}
+
+.coef {
+  -moz-appearance: none;
+  -webkit-appearance: none;
+  appearance: none;
+  font: inherit;
+  color: inherit;
+  background: none;
+  background-color: transparent;
+  margin: 0;
+  border: none;
+  padding: 0;
+  margin-inline: 1em;
+  inline-size: 4em;
+  text-align: end;
+}
+
+body {
+	margin: auto;
+	padding: 1em;
+	max-width: 80em;
+}
+
+pre {
+	white-space: pre-wrap;
+}
+
+hgroup > h1 ~ p {
+	font-weight: bold;
+	font-size: 125%;
+}
+</style>
+</head>
+<body>
+<h1>Gotcha</h1>
+<p>Variables count: <input id="var-count" type="number" min="1" step="1" value="1" autocomplete="off"></p>
+<p>System size: <input id="system-size" type="number" min="1" step="1" value="1" autocomplete="off"></p>
+<table id="matrix-table">
+<tbody id="matrix"></tbody>
+</table>
+<p><button id="button-start" disabled>Start</button></p>
+<script type="module">
+import { Matrix } from "../dist/index.js";
+
+const varCount = document.querySelector('#var-count');
+const systemSize = document.querySelector('#system-size');
+const matrix = document.querySelector('#matrix');
+const buttonStart = document.querySelector('#button-start');
+
+const values = new Map;
+const updateCallbacks = new Map;
+const getKey = (i, j) => `${i},${j}`;
+
+const getColumnCount = () => {
+  return Math.max(1, varCount.valueAsNumber | 0) + 1;
+};
+
+const getRowCount = () => Math.max(1, systemSize.valueAsNumber | 0);
+
+const initializeForm = () => {
+  const count = Math.max(1, varCount.valueAsNumber | 0);
+  const size = Math.max(1, systemSize.valueAsNumber | 0);
+  values.clear();
+  updateCallbacks.clear();
+  matrix.textContent = '';
+
+  for (let i = 0; i < size; i++) {
+    const tr = document.createElement('tr');
+    for (let j = 0; j < count; j++) {
+      const td = document.createElement('td');
+      const input = document.createElement('input');
+      input.classList.add('coef');
+      input.type = 'text';
+      input.value = '0.00';
+      const key = getKey(i, j);
+      input.addEventListener('change', (ev) => {
+        const value = Number(input.value);
+        values.set(key, isNaN(value) ? 0 : value);
+      });
+      updateCallbacks.set(key, (value) => {
+        value = String(value);
+        input.value = value;
+        values.set(key, Number(value));
+      });
+      const sub = document.createElement('sub');
+      sub.textContent = String(j + 1);
+      if (j == 0) {
+        td.append(input, 'x', sub);
+      } else {
+        td.append('+', input, 'x', sub);
+      }
+      tr.append(td);
+    }
+    {
+      const td = document.createElement('td');
+      const input = document.createElement('input');
+      input.classList.add('coef');
+      input.type = 'text';
+      input.value = '0.00';
+      td.append('=', input);
+      tr.append(td);
+      const key = getKey(i, count);
+      input.addEventListener('change', (ev) => {
+        const value = Number(input.value);
+        values.set(key, isNaN(value) ? 0 : value);
+      });
+      updateCallbacks.set(key, (value) => {
+        value = String(value);
+        input.value = value;
+        values.set(key, Number(value));
+      });
+    }
+    matrix.append(tr);
+  }
+};
+document.addEventListener('DOMContentLoaded', (ev) => {
+  initializeForm();
+  buttonStart.disabled = false;
+});
+
+varCount.addEventListener('change', (ev) => {
+  queueMicrotask(() => initializeForm());
+});
+
+systemSize.addEventListener('change', (ev) => {
+  queueMicrotask(() => initializeForm());
+});
+
+const sleep = (millis) => {
+  return new Promise((res) => {
+    setTimeout(() => res(), millis >>> 0);
+  });
+};
+
+buttonStart.addEventListener('click', async (ev) => {
+  const rowCount = getRowCount();
+  const columnCount = getColumnCount();
+  const currentValues = new Array(rowCount * columnCount);
+  for (let i = 0; i < rowCount; i++) {
+    for (let j = 0; j < columnCount; j++) {
+      currentValues[i * columnCount + j] = values.get(getKey(i, j)) ?? 0;
+    }
+  }
+  console.log(currentValues, values);
+  buttonStart.disabled = true;
+  const inputs = matrix.querySelectorAll('input');
+  for (const input of inputs) {
+    input.readonly = true;
+  }
+  const matrixObj = Matrix.fromFloatValues(columnCount, rowCount, currentValues);
+  console.log(matrixObj + '');
+  await sleep(1000);
+  const gen = matrixObj.performRowReductionByStep();
+  let done = false;
+  while (!done) {
+    console.log(matrixObj + '');
+    for (let i = 0; i < rowCount; i++) {
+      for (let j = 0; j < columnCount; j++) {
+        updateCallbacks.get(getKey(i, j))?.call(null, matrixObj.get(i, j).toFixed(2));
+      }
+    }
+    await sleep(1000);
+    ({done} = gen.next());
+  }
+  console.log(matrixObj + '');
+  for (let i = 0; i < rowCount; i++) {
+    for (let j = 0; j < columnCount; j++) {
+      updateCallbacks.get(getKey(i, j))?.call(null, matrixObj.get(i, j).toFixed(2));
+    }
+  }
+  for (const input of inputs) {
+    input.readonly = false;
+  }
+  buttonStart.disabled = false;
+});
+</script>
+</body>
+</html>
